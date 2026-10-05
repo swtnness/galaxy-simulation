@@ -69,13 +69,13 @@ pink-galaxy-simulation/
 Clone the repository:
 
 ```bash
-git clone https://github.com/YOUR-USERNAME/pink-galaxy-simulation.git
+git clone https://github.com/YOUR-USERNAME/galaxy-simulation.git
 ```
 
 Open the project folder:
 
 ```bash
-cd pink-galaxy-simulation
+cd galaxy-simulation
 ```
 
 Then open `index.html` in your browser.
