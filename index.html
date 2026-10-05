@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#120713">
+  <title>Galaxia Rosita</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, -apple-system, sans-serif; }
+    * { box-sizing: border-box; }
+
+    body {
+      min-height: 100vh;
+      min-height: 100dvh;
+      margin: 0;
+      padding: 24px 16px;
+      display: grid;
+      place-items: center;
+      color: #fce7f3;
+      background: radial-gradient(ellipse at 50% 35%, #32132b 0%, #160819 48%, #0b0610 100%);
+    }
+
+    main { width: min(100%, 960px); }
+
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px 20px;
+      justify-content: space-between;
+      align-items: end;
+      margin-bottom: 16px;
+    }
+
+    h1 {
+      margin: 0 0 4px;
+      color: #f9a8d4;
+      font-size: clamp(1.35rem, 4vw, 2rem);
+    }
+
+    p {
+      margin: 0;
+      color: #e9c5dc;
+      font-size: .9rem;
+      line-height: 1.45;
+    }
+
+    .controls { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    button {
+      border: 1px solid #a94b84;
+      border-radius: 999px;
+      padding: 9px 13px;
+      background: #36142f;
+      color: #ffe5f2;
+      font: inherit;
+      font-size: .85rem;
+      cursor: pointer;
+    }
+
+    button:hover { background: #572047; }
+    button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: min(68vh, 620px);
+      height: min(68dvh, 620px);
+      min-height: 300px;
+      border: 1px solid #904766;
+      border-radius: 18px;
+      background: #0d0612;
+      box-shadow: 0 24px 65px #0008, 0 0 60px #b43e7c22;
+      cursor: crosshair;
+      touch-action: manipulation;
+    }
+
+    .hint {
+      margin-top: 10px;
+      text-align: center;
+      font-size: .78rem;
+      color: #cfa8c3;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <h1>...</h1>
+        <p></p>
+      </div>
+      <div class="controls">
+        <button id="toggle" type="button" aria-label="Pausar animación">Pausar</button>
+        <button id="clear" type="button">Quitar núcleos</button>
+        <button id="restart" type="button">Reiniciar</button>
+      </div>
+    </header>
+
+    <canvas id="galaxy" aria-label="Simulación interactiva de galaxia rosa con estrellas y núcleos de gravedad"></canvas>
+    <p class="hint"></p>
+  </main>
+
+  <script>
+    'use strict';
+
+    const canvas = document.querySelector('#galaxy');
+    const ctx = canvas.getContext('2d', { alpha: false });
+    const toggle = document.querySelector('#toggle');
+    const attractors = [];
+    const colors = ['#fff5fb', '#ffd4eb', '#f9a8d4', '#f472b6', '#e879f9'];
+    const prefersReducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+    const STAR_COUNT = 1100;
+    const SOFTENING = 24;
+    const TWO_PI = Math.PI * 2;
+
+    let width = 0;
+    let height = 0;
+    let stars = [];
+    let paused = prefersReducedMotion.matches;
+    let previousTime = 0;
+
+    function fitCanvas() {
+      const bounds = canvas.getBoundingClientRect();
+      width = bounds.width;
+      height = bounds.height;
+
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = Math.round(width * dpr);
+      canvas.height = Math.round(height * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      makeStars();
+      paintBackground(1);
+      drawScene();
+    }
+
+    function makeStars() {
+      const span = Math.min(width, height);
+      const outerRadius = Math.max(65, span * .45);
+      const centralMass = span * 4700;
+
+      stars = Array.from({ length: STAR_COUNT }, (_, i) => {
+        const radius = 18 + Math.sqrt(Math.random()) * (outerRadius - 18);
+        const arm = i % 2;
+        const spread = (Math.random() + Math.random() + Math.random() - 1.5) * .26;
+        const angle = arm * Math.PI + radius * .035 + spread;
+
+        const x = width / 2 + radius * Math.cos(angle);
+        const y = height / 2 + radius * Math.sin(angle) * .78;
+        const speed = Math.sqrt(centralMass / Math.max(radius, SOFTENING))
+          * (.87 + Math.random() * .25);
+
+        return {
+          x,
+          y,
+          vx: -Math.sin(angle) * speed,
+          vy: Math.cos(angle) * speed * .78,
+          radius: Math.random() < .07 ? 1.6 : .55 + Math.random() * .7,
+          color: colors[Math.floor(Math.random() * colors.length)]
+        };
+      });
+    }
+
+    function paintBackground(opacity) {
+      ctx.fillStyle = `rgba(13, 6, 18, ${opacity})`;
+      ctx.fillRect(0, 0, width, height);
+    }
+
+    function glow(x, y, radius, color) {
+      const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
+      gradient.addColorStop(0, color);
+      gradient.addColorStop(1, 'rgba(255, 100, 190, 0)');
+
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(x, y, radius, 0, TWO_PI);
+      ctx.fill();
+    }
+
+    function drawScene() {
+      glow(width / 2, height / 2, 75, 'rgba(255, 170, 215, .3)');
+
+      ctx.beginPath();
+      ctx.arc(width / 2, height / 2, 4, 0, TWO_PI);
+      ctx.fillStyle = '#fff2f9';
+      ctx.fill();
+
+      for (const star of stars) {
+        ctx.beginPath();
+        ctx.arc(star.x, star.y, star.radius, 0, TWO_PI);
+        ctx.fillStyle = star.color;
+        ctx.fill();
+      }
+
+      for (const point of attractors) {
+        glow(point.x, point.y, 25, 'rgba(255, 60, 160, .65)');
+
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, 4.5, 0, TWO_PI);
+        ctx.fillStyle = '#ffb5db';
+        ctx.fill();
+      }
+    }
+
+    function accelerate(star, x, y, mass, dt) {
+      const dx = x - star.x;
+      const dy = y - star.y;
+      const distanceSquared = dx * dx + dy * dy + SOFTENING * SOFTENING;
+      const factor = mass * dt / (distanceSquared * Math.sqrt(distanceSquared));
+
+      star.vx += dx * factor;
+      star.vy += dy * factor;
+    }
+
+    function step(dt) {
+      const span = Math.min(width, height);
+      const centralMass = span * 4700;
+      const extraMass = centralMass * .32;
+
+      for (const star of stars) {
+        accelerate(star, width / 2, height / 2, centralMass, dt);
+
+        for (const point of attractors) {
+          accelerate(star, point.x, point.y, extraMass, dt);
+        }
+
+        star.x += star.vx * dt;
+        star.y += star.vy * dt;
+      }
+    }
+
+    function animate(time) {
+      if (!paused) {
+        const dt = previousTime ? Math.min((time - previousTime) / 1000, .033) : 0;
+        step(dt);
+        paintBackground(.27);
+        drawScene();
+      }
+
+      previousTime = time;
+      requestAnimationFrame(animate);
+    }
+
+    canvas.addEventListener('pointerdown', event => {
+      const rect = canvas.getBoundingClientRect();
+
+      attractors.push({
+        x: event.clientX - rect.left,
+        y: event.clientY - rect.top
+      });
+
+      if (attractors.length > 3) attractors.shift();
+      if (paused) {
+        paintBackground(1);
+        drawScene();
+      }
+    });
+
+    toggle.addEventListener('click', () => {
+      paused = !paused;
+      toggle.textContent = paused ? 'Reanudar' : 'Pausar';
+      toggle.setAttribute('aria-label', paused ? 'Reanudar animación' : 'Pausar animación');
+      previousTime = 0;
+    });
+
+    document.querySelector('#clear').addEventListener('click', () => {
+      attractors.length = 0;
+      if (paused) {
+        paintBackground(1);
+        drawScene();
+      }
+    });
+
+    document.querySelector('#restart').addEventListener('click', () => {
+      attractors.length = 0;
+      makeStars();
+      paintBackground(1);
+      drawScene();
+      previousTime = 0;
+    });
+
+    let resizeTimer;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(fitCanvas, 120);
+    });
+
+    fitCanvas();
+    toggle.textContent = paused ? 'Reanudar' : 'Pausar';
+    toggle.setAttribute('aria-label', paused ? 'Reanudar animación' : 'Pausar animación');
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>
